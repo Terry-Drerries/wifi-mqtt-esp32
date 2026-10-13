@@ -1,19 +1,26 @@
 #include "WiFi.h"
 #include "PubSubClient.h" //pio lib install "knolleary/PubSubClient"
 
-#define SSID          "Techtile"
-#define PWD           "Techtile229"
+#define SSID          "IB3"
+#define PWD           "ingenieursbeleving3"
 
-#define MQTT_SERVER   "10.128.48.25"
+#define MQTT_SERVER   "192.168.0.190"
 #define MQTT_PORT     1883
 
 #define LED_PIN       2
+
+#define mqtt_user "pswgenerator"
+#define mqtt_password "pswofpswgenerator"
+
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 long lastMsg = 0;
 char msg[50];
 int value = 0;
+
+unsigned long long validTags[7] = {1241507010ULL, 1131320889430145, 1248637872444032, 1130122906113409, 1281768468399492, 1228337857, 1324203623003008};
+int remainingTags = 7;
 
 void callback(char *topic, byte *message, unsigned int length);
 
@@ -66,20 +73,45 @@ void callback(char *topic, byte *message, unsigned int length)
 
   // If a message is received on the topic esp32/output, you check if the message is either "on" or "off".
   // Changes the output state according to the message
-  if (String(topic) == "esp32/output")
-  {
-    Serial.print("Changing output to ");
-    if (messageTemp == "on")
+  if (String(topic) == "tag")
+{
+    unsigned long long receivedTag =
+        strtoull(messageTemp.c_str(), NULL, 10);
+
+    for (int i = 0; i < remainingTags; i++)
     {
-      Serial.println("on");
-      digitalWrite(LED_PIN, HIGH);
+        if (receivedTag == validTags[i])
+        {
+            Serial.println("Geldige tag gevonden");
+
+            // verwijder tag uit array
+            validTags[i] = validTags[remainingTags - 1];
+            remainingTags--;
+
+            Serial.print("Nog ");
+            Serial.print(remainingTags);
+            Serial.println(" tags te vinden");
+
+            break;
+        }
     }
-    else if (messageTemp == "off")
+
+    if (remainingTags == 0)
     {
-      Serial.println("off");
-      digitalWrite(LED_PIN, LOW);
+        String password = "";
+
+        for (int i = 0; i < 8; i++)
+        {
+            password += String(random(0, 10));
+        }
+
+        Serial.print("Wachtwoord: ");
+        Serial.println("superGeheimWachtwoord123");
+
+        client.publish("password", password.c_str());
     }
-  }
+}
+
 }
 
 void reconnect()
@@ -91,11 +123,11 @@ void reconnect()
     // Attempt to connect
     // creat unique client ID
     // in Mosquitto broker enable anom. access
-    if (client.connect("ESP8266Client"))
+    if (client.connect("ESP8266Client"), mqtt_user, mqtt_password)
     {
       Serial.println("connected");
       // Subscribe
-      client.subscribe("esp32/output");
+      client.subscribe("tag");
     }
     else
     {
